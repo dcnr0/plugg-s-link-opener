@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plugg's Link Opener V1</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="https://i.imgur.com/dRV72zy_d.webp?maxwidth=760&fidelity=grand">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        roboto: ['Roboto', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fff7ed',
+                            400: '#fb923c',
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c',
+                            900: '#7c2d12',
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 4s ease-in-out infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'shimmer': 'shimmer 2.5s infinite',
+                        'pop-up': 'popUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
+                            '50%': { opacity: '0.8', transform: 'scale(1.08)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        shimmer: {
+                            '100%': { transform: 'translateX(100%)' }
+                        },
+                        popUp: {
+                            '0%': { opacity: '0', transform: 'scale(0.85) translateY(30px)' },
+                            '100%': { opacity: '1', transform: 'scale(1) translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Orange Glassmorphism Styles */
+        .glass-panel {
+            background: rgba(24, 18, 15, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(249, 115, 22, 0.15);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        }
+        .light .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(249, 115, 22, 0.2);
+            box-shadow: 0 20px 40px rgba(249, 115, 22, 0.1);
+        }
+
+        .glass-input {
+            background: rgba(12, 10, 9, 0.6);
+            border: 1px solid rgba(249, 115, 22, 0.15);
+        }
+        .light .glass-input {
+            background: rgba(255, 247, 237, 0.8);
+            border: 1px solid rgba(253, 186, 116, 0.6);
+        }
+
+        /* Initial hidden state for entrance animations */
+        .pop-entry {
+            opacity: 0;
+            transform: scale(0.88) translateY(24px);
+            will-change: transform, opacity;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(249, 115, 22, 0.3);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(249, 115, 22, 0.6);
+        }
+
+        /* Animated orange launch button glow */
+        .btn-glow {
+            position: relative;
+        }
+        .btn-glow::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(45deg, #f97316, #fb923c, #f59e0b, #ea580c);
+            border-radius: 1rem;
+            z-index: -1;
+            filter: blur(10px);
+            opacity: 0.7;
+            transition: opacity 0.3s ease, filter 0.3s ease;
+            background-size: 300% 300%;
+            animation: shimmer 6s ease infinite;
+        }
+        .btn-glow:hover::before {
+            opacity: 1;
+            filter: blur(16px);
+        }
+
+        /* Custom smooth list transitions */
+        .link-chip {
+            animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px) scale(0.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-stone-950 text-stone-100 min-h-screen font-sans antialiased overflow-x-hidden selection:bg-orange-500 selection:text-white transition-colors duration-300 pb-28">
+
+    <!-- Interactive Canvas Background -->
+    <canvas id="bgCanvas" class="fixed inset-0 pointer-events-none z-0 opacity-60 dark:opacity-40 transition-opacity duration-500"></canvas>
+
+    <!-- Ambient Glowing Orange Orbs -->
+    <div class="fixed top-1/4 -left-32 w-96 h-96 bg-orange-600/30 dark:bg-orange-600/20 rounded-full blur-[120px] pointer-events-none animate-pulse-glow z-0"></div>
+    <div class="fixed bottom-1/4 -right-32 w-96 h-96 bg-amber-600/25 dark:bg-amber-600/15 rounded-full blur-[120px] pointer-events-none animate-pulse-glow z-0" style="animation-delay: 2s;"></div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col min-h-screen justify-between">
+
+        <!-- Header -->
+        <header class="pop-entry flex items-center justify-between pb-8">
+            <div class="flex items-center gap-3.5 group">
+                <!-- Profile Pic Icon with Image & Fallback to Roboto 'P' -->
+                <div class="relative flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-600 via-amber-500 to-orange-500 text-white shadow-lg shadow-orange-500/30 group-hover:scale-105 transition-transform duration-300 border border-orange-400/40 select-none overflow-hidden">
+                    <img src="https://i.imgur.com/dRV72zy_d.webp?maxwidth=760&fidelity=grand" 
+                         alt="Profile" 
+                         class="w-full h-full object-cover rounded-2xl" 
+                         onerror="this.style.display='none'; document.getElementById('avatarFallbackP').style.display='block';">
+                    <span id="avatarFallbackP" class="hidden font-roboto font-normal text-2xl text-white drop-shadow-sm">P</span>
+                    <div class="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-400 via-amber-300 to-orange-200">
+                        Plugg's Link Opener V1
+                    </h1>
+                    <p class="text-xs sm:text-sm font-medium text-stone-400 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                        Batch link manager & simultaneous multi-tab launcher
+                    </p>
+                </div>
+            </div>
+
+            <!-- Controls (Presets & Theme) -->
+            <div class="flex items-center gap-2.5">
+                <button id="presetModalBtn" class="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-stone-900/80 border border-orange-500/20 hover:border-orange-500/50 hover:bg-stone-800 text-stone-300 hover:text-white transition-all duration-200 shadow-sm active:scale-95">
+                    <i data-lucide="folder-heart" class="w-4 h-4 text-orange-400"></i>
+                    <span class="hidden sm:inline">Saved Presets</span>
+                </button>
+
+                <button id="themeToggle" class="p-2.5 rounded-xl bg-stone-900/80 border border-orange-500/20 hover:border-orange-500/50 text-stone-300 hover:text-white transition-all duration-200 shadow-sm active:scale-95" title="Toggle Theme">
+                    <i data-lucide="moon" id="themeIcon" class="w-4 h-4 text-orange-400"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Pop-up Blocking Banner Alert -->
+        <div id="popupBanner" class="pop-entry mb-6 p-4 rounded-2xl glass-panel border-amber-500/40 bg-amber-500/10 text-amber-200 flex items-start sm:items-center justify-between gap-3 text-xs sm:text-sm transition-all duration-300">
+            <div class="flex items-start sm:items-center gap-3">
+                <div class="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <strong class="font-semibold text-amber-300">Browser Notice:</strong>
+                    <span>If simultaneous mode opens only 1 tab, allow pop-ups for this site in your browser's address bar.</span>
+                </div>
+            </div>
+            <button id="dismissBanner" class="text-amber-400 hover:text-amber-200 p-1 shrink-0 rounded-lg hover:bg-amber-500/20 transition-colors">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow items-start">
+
+            <!-- Left Panel: Input & Controls (7 Cols) -->
+            <div class="lg:col-span-7 flex flex-col gap-5">
+                
+                <!-- Main Glass Card -->
+                <div class="pop-entry glass-panel rounded-3xl p-5 sm:p-6 flex flex-col gap-4 relative overflow-hidden">
+                    
+                    <div class="flex items-center justify-between">
+                        <label for="urlInput" class="text-xs sm:text-sm font-semibold text-stone-200 flex items-center gap-2">
+                            <i data-lucide="text-cursor-input" class="w-4 h-4 text-orange-400"></i>
+                            Paste or Type URLs
+                        </label>
+                        <div class="flex items-center gap-2 text-xs font-mono text-stone-400">
+                            <span id="charCount">0 chars</span>
+                            <span>•</span>
+                            <span id="lineCount">0 lines</span>
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="relative group">
+                        <textarea id="urlInput" rows="9" placeholder="Enter links separated by line breaks, spaces, or commas...&#10;&#10;github.com&#10;https://tailwindcss.com&#10;youtube.com" class="w-full glass-input rounded-2xl p-4 text-xs sm:text-sm font-mono text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all resize-none leading-relaxed"></textarea>
+                    </div>
+
+                    <!-- Input Toolbar -->
+                    <div class="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-orange-500/10">
+                        <div class="flex items-center gap-2">
+                            <button id="formatBtn" class="px-3 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 border border-orange-500/30 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
+                                <i data-lucide="wand-2" class="w-3.5 h-3.5 text-orange-400"></i>
+                                Format & Clean
+                            </button>
+                            <button id="clearBtn" class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                Clear
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button id="savePresetBtn" class="px-3 py-1.5 rounded-xl bg-stone-900/80 hover:bg-stone-800 text-stone-300 border border-orange-500/20 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
+                                <i data-lucide="bookmark-plus" class="w-3.5 h-3.5 text-orange-400"></i>
+                                Save Preset
+                            </button>
+                            <button id="pasteBtn" class="px-3 py-1.5 rounded-xl bg-stone-900/80 hover:bg-stone-800 text-stone-300 border border-orange-500/20 text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95">
+                                <i data-lucide="clipboard-paste" class="w-3.5 h-3.5"></i>
+                                Paste
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Launch Settings Card -->
+                <div class="pop-entry glass-panel rounded-3xl p-4 sm:p-5 flex flex-col gap-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-stone-300 flex items-center gap-2">
+                            <i data-lucide="sliders" class="w-4 h-4 text-orange-400"></i>
+                            Launch Mode Settings
+                        </span>
+                        <span id="speedDisplay" class="text-xs font-mono text-orange-400 bg-orange-500/10 px-2.5 py-0.5 rounded-lg border border-orange-500/20">Instant Simultaneous</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <!-- Mode Switcher -->
+                        <div class="flex items-center justify-between p-3 rounded-2xl bg-stone-900/50 border border-orange-500/10">
+                            <div>
+                                <p class="text-xs font-medium text-stone-200" id="modeTitle">Simultaneous Opening</p>
+                                <p class="text-[10px] text-stone-400" id="modeSubtitle">Opens all tabs instantly</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="staggerToggle" class="sr-only peer">
+                                <div class="w-9 h-5 bg-stone-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Delay Slider -->
+                        <div id="sliderWrapper" class="flex flex-col justify-center p-3 rounded-2xl bg-stone-900/50 border border-orange-500/10 gap-1.5 opacity-40 pointer-events-none transition-opacity">
+                            <div class="flex justify-between text-[11px] text-stone-400">
+                                <span>Interval</span>
+                                <span class="font-mono">100ms - 2000ms</span>
+                            </div>
+                            <input type="range" id="delaySlider" min="100" max="2000" step="100" value="300" class="w-full h-1.5 bg-stone-800 rounded-lg appearance-none cursor-pointer accent-orange-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Launch CTA Button -->
+                <button id="launchBtn" class="pop-entry btn-glow w-full py-4 rounded-2xl bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 hover:from-orange-500 hover:to-amber-400 text-white font-bold text-sm sm:text-base tracking-wide flex items-center justify-center gap-3 transition-all duration-300 active:scale-[0.98] shadow-xl group">
+                    <i data-lucide="rocket" class="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+                    <span>OPEN ALL LINKS SIMULTANEOUSLY</span>
+                    <span id="launchBadge" class="bg-white/20 text-white font-mono text-xs px-2.5 py-0.5 rounded-full font-extrabold ml-1">0</span>
+                </button>
+
+            </div>
+
+            <!-- Right Panel: Live Link Chips / Preview (5 Cols) -->
+            <div class="pop-entry lg:col-span-5 flex flex-col h-full">
+                <div class="glass-panel rounded-3xl p-5 flex flex-col h-full min-h-[460px]">
+                    
+                    <!-- Header -->
+                    <div class="flex items-center justify-between pb-4 border-b border-orange-500/10">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="layers" class="w-4 h-4 text-orange-400"></i>
+                            <h2 class="text-xs sm:text-sm font-semibold text-stone-200">Parsed Queue</h2>
+                        </div>
+                        <span id="queueBadge" class="text-xs font-mono font-bold px-2.5 py-1 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                            0 Ready
+                        </span>
+                    </div>
+
+                    <!-- Scrollable Link Queue List -->
+                    <div id="queueList" class="flex-grow overflow-y-auto max-h-[420px] py-3 space-y-2.5 pr-1">
+                        <!-- Empty State -->
+                        <div id="emptyState" class="h-64 flex flex-col items-center justify-center text-center p-6 text-stone-500">
+                            <div class="w-12 h-12 rounded-2xl bg-stone-900/80 flex items-center justify-center mb-3 text-stone-400 border border-orange-500/10">
+                                <i data-lucide="link-2-off" class="w-6 h-6 text-orange-400/60"></i>
+                            </div>
+                            <p class="text-xs font-medium text-stone-400">Queue is empty</p>
+                            <p class="text-[11px] text-stone-500 mt-1">Paste links on the left to generate real-time previews.</p>
+                        </div>
+                    </div>
+
+                    <!-- Queue Footer -->
+                    <div class="pt-3 border-t border-orange-500/10 flex items-center justify-between text-xs text-stone-400">
+                        <span id="invalidCountText">0 items excluded</span>
+                        <button id="copyListBtn" class="hover:text-orange-400 flex items-center gap-1.5 transition-colors">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy Valid Links
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 pt-6 border-t border-orange-500/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
+            <p>Crafted for fast workflow efficiency • <strong>Plugg's Link Opener V1</strong></p>
+            <p class="flex items-center gap-1.5">
+                <i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-500"></i> Client-side processing only
+            </p>
+        </footer>
+
+    </div>
+
+    <!-- Floating Bottom Contact Banner (Sleek, Minimal & Dismissible) -->
+    <div id="feedbackBanner" class="pop-entry fixed bottom-5 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-xl glass-panel rounded-2xl p-3 px-4 border-l-4 border-l-orange-500 border-y border-r border-orange-500/20 bg-stone-950/80 text-stone-200 shadow-2xl flex items-center justify-between gap-3 text-xs backdrop-blur-xl transition-all duration-300">
+        <div class="flex items-center gap-3 overflow-hidden">
+            <div class="p-1.5 rounded-xl bg-orange-500/10 text-orange-400 shrink-0">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+            </div>
+            <div class="truncate">
+                <p class="font-medium text-stone-200 truncate">Let me know what updates you guys want me to add!</p>
+                <p class="text-[11px] text-orange-400 font-mono font-medium truncate">Email: spamplugg8@gmail.com</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <button id="copyEmailBtn" class="px-2.5 py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 hover:text-white font-medium text-xs border border-orange-500/30 transition-all active:scale-95 flex items-center gap-1.5">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Copy Email</span>
+            </button>
+            <button id="closeFeedbackBanner" class="p-1.5 text-stone-400 hover:text-white rounded-xl hover:bg-stone-800/80 transition-colors" title="Dismiss notification">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal: Presets Manager -->
+    <div id="presetModal" class="fixed inset-0 z-50 bg-stone-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+        <div class="glass-panel rounded-3xl max-w-md w-full p-6 shadow-2xl border border-orange-500/20 transform scale-95 transition-transform duration-200" id="presetModalContent">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="folder-heart" class="w-5 h-5 text-orange-400"></i>
+                    <h3 class="text-base font-bold text-stone-100">Saved Presets</h3>
+                </div>
+                <button id="closePresetModal" class="p-1 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div id="presetList" class="space-y-2 max-h-60 overflow-y-auto pr-1 my-4">
+                <!-- Preset items injected here -->
+            </div>
+
+            <button id="closePresetModalBtn" class="w-full py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-200 font-semibold rounded-xl text-xs transition-colors">
+                Close Window
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-24 right-6 z-50 glass-panel border-orange-500/30 bg-stone-900/95 text-stone-100 text-xs sm:text-sm px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toastIcon" class="p-1.5 rounded-xl bg-orange-500/20 text-orange-400">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+        </div>
+        <span id="toastMsg" class="font-medium">Notification message</span>
+    </div>
+
+    <!-- Main Logic Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Lucide Icons
+            lucide.createIcons();
+
+            // Trigger Pop-up Entrance Animation Sequence
+            const popElements = document.querySelectorAll('.pop-entry');
+            popElements.forEach((el, index) => {
+                setTimeout(() => {
+                    el.classList.add('animate-pop-up');
+                }, index * 100);
+            });
+
+            // Email Copy Action
+            const copyEmailBtn = document.getElementById('copyEmailBtn');
+            if (copyEmailBtn) {
+                copyEmailBtn.addEventListener('click', () => {
+                    const email = "spamplugg8@gmail.com";
+                    const textarea = document.createElement('textarea');
+                    textarea.value = email;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    showToast("Copied spamplugg8@gmail.com!", "mail");
+                });
+            }
+
+            // Dismiss Feedback Banner Action
+            const feedbackBanner = document.getElementById('feedbackBanner');
+            const closeFeedbackBanner = document.getElementById('closeFeedbackBanner');
+            if (closeFeedbackBanner && feedbackBanner) {
+                closeFeedbackBanner.addEventListener('click', () => {
+                    feedbackBanner.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+                    setTimeout(() => {
+                        feedbackBanner.style.display = 'none';
+                    }, 300);
+                });
+            }
+
+            // Elements
+            const urlInput = document.getElementById('urlInput');
+            const queueList = document.getElementById('queueList');
+            const emptyState = document.getElementById('emptyState');
+            const charCount = document.getElementById('charCount');
+            const lineCount = document.getElementById('lineCount');
+            const queueBadge = document.getElementById('queueBadge');
+            const launchBadge = document.getElementById('launchBadge');
+            const invalidCountText = document.getElementById('invalidCountText');
+            
+            // Buttons
+            const launchBtn = document.getElementById('launchBtn');
+            const formatBtn = document.getElementById('formatBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const pasteBtn = document.getElementById('pasteBtn');
+            const savePresetBtn = document.getElementById('savePresetBtn');
+            const copyListBtn = document.getElementById('copyListBtn');
+            
+            // Settings
+            const staggerToggle = document.getElementById('staggerToggle');
+            const delaySlider = document.getElementById('delaySlider');
+            const speedDisplay = document.getElementById('speedDisplay');
+            const sliderWrapper = document.getElementById('sliderWrapper');
+            const modeTitle = document.getElementById('modeTitle');
+            const modeSubtitle = document.getElementById('modeSubtitle');
+
+            // Presets Modal
+            const presetModalBtn = document.getElementById('presetModalBtn');
+            const presetModal = document.getElementById('presetModal');
+            const presetModalContent = document.getElementById('presetModalContent');
+            const closePresetModal = document.getElementById('closePresetModal');
+            const closePresetModalBtn = document.getElementById('closePresetModalBtn');
+            const presetList = document.getElementById('presetList');
+
+            // Theme Toggle
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = document.getElementById('themeIcon');
+
+            // Banner
+            const popupBanner = document.getElementById('popupBanner');
+            const dismissBanner = document.getElementById('dismissBanner');
+
+            let parsedUrls = [];
+
+            // --- Theme Toggle Handler ---
+            themeToggle.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                document.documentElement.classList.toggle('light', !isDark);
+                themeIcon.setAttribute('data-lucide', isDark ? 'moon' : 'sun');
+                lucide.createIcons();
+            });
+
+            // --- Banner Handler ---
+            dismissBanner.addEventListener('click', () => {
+                popupBanner.style.display = 'none';
+            });
+
+            // --- Mode & Slider Display Handlers ---
+            const updateModeUI = () => {
+                const isStaggered = staggerToggle.checked;
+                if (isStaggered) {
+                    sliderWrapper.classList.remove('opacity-40', 'pointer-events-none');
+                    speedDisplay.textContent = `${delaySlider.value} ms delay`;
+                    modeTitle.textContent = "Staggered Opening";
+                    modeSubtitle.textContent = "Bypasses strict popup blocks";
+                    launchBtn.querySelector('span:nth-child(2)').textContent = "OPEN ALL LINKS (STAGGERED)";
+                } else {
+                    sliderWrapper.classList.add('opacity-40', 'pointer-events-none');
+                    speedDisplay.textContent = "Instant Simultaneous";
+                    modeTitle.textContent = "Simultaneous Opening";
+                    modeSubtitle.textContent = "Opens all tabs instantly";
+                    launchBtn.querySelector('span:nth-child(2)').textContent = "OPEN ALL LINKS SIMULTANEOUSLY";
+                }
+            };
+
+            delaySlider.addEventListener('input', (e) => {
+                if (staggerToggle.checked) {
+                    speedDisplay.textContent = `${e.target.value} ms delay`;
+                }
+            });
+
+            staggerToggle.addEventListener('change', updateModeUI);
+
+            // --- URL Formatting & Validation ---
+            const parseUrlsFromText = (rawText) => {
+                const tokens = rawText.split(/[\n,\s]+/).map(t => t.trim()).filter(Boolean);
+                const results = [];
+                let invalid = 0;
+
+                // Regex for matching standard domains with valid TLDs or explicit http(s) URLs
+                const domainOrUrlRegex = /^(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,24}(?::\d+)?(?:\/[^\s]*)?$/i;
+
+                tokens.forEach(token => {
+                    // Clean trailing punctuation attached to user input (e.g., "google.com.", "github.com,")
+                    let cleanedToken = token.replace(/[.,;:!?]+$/, '');
+
+                    if (!domainOrUrlRegex.test(cleanedToken)) {
+                        invalid++;
+                        return;
+                    }
+
+                    let formatted = cleanedToken;
+                    if (!/^https?:\/\//i.test(formatted)) {
+                        formatted = 'https://' + formatted;
+                    }
+
+                    try {
+                        const parsed = new URL(formatted);
+                        // Verify hostname has at least one dot and a valid TLD length
+                        const parts = parsed.hostname.split('.');
+                        if (parts.length >= 2 && parts[parts.length - 1].length >= 2) {
+                            results.push(parsed.href);
+                        } else {
+                            invalid++;
+                        }
+                    } catch (e) {
+                        invalid++;
+                    }
+                });
+
+                return { validUrls: Array.from(new Set(results)), invalidCount: invalid };
+            };
+
+            const updateQueueUI = () => {
+                const text = urlInput.value;
+                charCount.textContent = `${text.length} chars`;
+                lineCount.textContent = `${text ? text.split('\n').length : 0} lines`;
+
+                const { validUrls, invalidCount } = parseUrlsFromText(text);
+                parsedUrls = validUrls;
+
+                queueBadge.textContent = `${parsedUrls.length} Ready`;
+                launchBadge.textContent = parsedUrls.length;
+                invalidCountText.textContent = `${invalidCount} invalid line(s)`;
+
+                renderQueueChips();
+            };
+
+            const renderQueueChips = () => {
+                const existingChips = queueList.querySelectorAll('.link-chip');
+                existingChips.forEach(c => c.remove());
+
+                if (parsedUrls.length === 0) {
+                    emptyState.style.display = 'flex';
+                    return;
+                }
+
+                emptyState.style.display = 'none';
+
+                parsedUrls.forEach((url, idx) => {
+                    const chip = document.createElement('div');
+                    chip.className = 'link-chip p-2.5 rounded-2xl bg-stone-900/60 border border-orange-500/10 hover:border-orange-500/40 flex items-center justify-between gap-2 text-xs transition-all group';
+                    
+                    let domain = url;
+                    try { domain = new URL(url).hostname.replace('www.', ''); } catch(e){}
+
+                    const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+
+                    chip.innerHTML = `
+                        <div class="flex items-center gap-2.5 overflow-hidden">
+                            <img src="${faviconUrl}" onerror="this.src='https://placehold.co/32/f97316/ffffff?text=P'" class="w-4 h-4 rounded-md shrink-0 object-contain" alt="">
+                            <div class="truncate">
+                                <p class="font-semibold text-stone-200 truncate">${domain}</p>
+                                <p class="text-[10px] text-stone-500 font-mono truncate">${url}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <a href="${url}" target="_blank" class="p-1 text-stone-400 hover:text-orange-400 rounded-lg hover:bg-stone-800 transition-colors" title="Test Link">
+                                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                            </a>
+                            <button class="delete-single-btn p-1 text-stone-400 hover:text-rose-400 rounded-lg hover:bg-stone-800 transition-colors" data-index="${idx}" title="Remove">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    `;
+
+                    queueList.appendChild(chip);
+                });
+
+                lucide.createIcons();
+
+                document.querySelectorAll('.delete-single-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const index = parseInt(e.currentTarget.getAttribute('data-index'));
+                        parsedUrls.splice(index, 1);
+                        urlInput.value = parsedUrls.join('\n');
+                        updateQueueUI();
+                        showToast("Link removed", "x");
+                    });
+                });
+            };
+
+            urlInput.addEventListener('input', updateQueueUI);
+
+            // --- Button Actions ---
+            formatBtn.addEventListener('click', () => {
+                if (parsedUrls.length === 0) {
+                    showToast("No valid URLs found to clean", "alert-circle");
+                    return;
+                }
+                urlInput.value = parsedUrls.join('\n');
+                updateQueueUI();
+                showToast("URLs cleaned & formatted", "wand-2");
+            });
+
+            clearBtn.addEventListener('click', () => {
+                urlInput.value = '';
+                updateQueueUI();
+                showToast("Cleared input area", "trash-2");
+            });
+
+            pasteBtn.addEventListener('click', async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text) {
+                        urlInput.value += (urlInput.value ? '\n' : '') + text;
+                        updateQueueUI();
+                        showToast("Pasted from clipboard", "clipboard-check");
+                    }
+                } catch (e) {
+                    showToast("Clipboard access denied", "shield-alert");
+                }
+            });
+
+            copyListBtn.addEventListener('click', () => {
+                if (parsedUrls.length === 0) {
+                    showToast("Queue is empty", "alert-circle");
+                    return;
+                }
+                const text = parsedUrls.join('\n');
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast("Parsed links copied!", "copy");
+            });
+
+            // --- Preset Management ---
+            savePresetBtn.addEventListener('click', () => {
+                if (parsedUrls.length === 0) {
+                    showToast("Add links before saving preset", "alert-circle");
+                    return;
+                }
+                const name = prompt("Enter a name for this preset group:");
+                if (!name) return;
+
+                const presets = JSON.parse(localStorage.getItem('plugg_presets') || '[]');
+                presets.push({ id: Date.now(), name, urls: parsedUrls });
+                localStorage.setItem('plugg_presets', JSON.stringify(presets));
+                showToast(`Saved preset "${name}"`, "bookmark-check");
+            });
+
+            const openPresetsModal = () => {
+                const presets = JSON.parse(localStorage.getItem('plugg_presets') || '[]');
+                presetList.innerHTML = '';
+
+                if (presets.length === 0) {
+                    presetList.innerHTML = `<p class="text-xs text-stone-500 py-4 text-center">No saved presets found.</p>`;
+                } else {
+                    presets.forEach((p) => {
+                        const div = document.createElement('div');
+                        div.className = 'flex items-center justify-between p-3 rounded-2xl bg-stone-900/80 border border-orange-500/10 text-xs';
+                        div.innerHTML = `
+                            <div>
+                                <p class="font-semibold text-stone-200">${p.name}</p>
+                                <p class="text-[10px] text-stone-500 font-mono">${p.urls.length} URL(s)</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button class="load-preset-btn px-2.5 py-1 rounded-xl bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 transition-colors" data-id="${p.id}">Load</button>
+                                <button class="delete-preset-btn p-1 text-stone-500 hover:text-rose-400 transition-colors" data-id="${p.id}"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                            </div>
+                        `;
+                        presetList.appendChild(div);
+                    });
+                    lucide.createIcons();
+
+                    document.querySelectorAll('.load-preset-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const id = parseInt(e.target.getAttribute('data-id'));
+                            const selected = presets.find(item => item.id === id);
+                            if (selected) {
+                                urlInput.value = selected.urls.join('\n');
+                                updateQueueUI();
+                                closePresetsModal();
+                                showToast(`Loaded "${selected.name}"`, "folder-check");
+                            }
+                        });
+                    });
+
+                    document.querySelectorAll('.delete-preset-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const id = parseInt(e.currentTarget.getAttribute('data-id'));
+                            const updated = presets.filter(item => item.id !== id);
+                            localStorage.setItem('plugg_presets', JSON.stringify(updated));
+                            openPresetsModal();
+                            showToast("Preset deleted", "trash-2");
+                        });
+                    });
+                }
+
+                presetModal.classList.remove('hidden');
+                setTimeout(() => {
+                    presetModal.classList.remove('opacity-0');
+                    presetModalContent.classList.remove('scale-95');
+                }, 10);
+            };
+
+            const closePresetsModal = () => {
+                presetModal.classList.add('opacity-0');
+                presetModalContent.classList.add('scale-95');
+                setTimeout(() => {
+                    presetModal.classList.add('hidden');
+                }, 200);
+            };
+
+            presetModalBtn.addEventListener('click', openPresetsModal);
+            closePresetModal.addEventListener('click', closePresetsModal);
+            closePresetModalBtn.addEventListener('click', closePresetsModal);
+
+            // --- Simultaneous & Staggered Launching Links Logic ---
+            launchBtn.addEventListener('click', () => {
+                if (parsedUrls.length === 0) {
+                    showToast("No valid links to open!", "alert-circle");
+                    return;
+                }
+
+                const isStaggered = staggerToggle.checked;
+                const interval = parseInt(delaySlider.value);
+
+                if (isStaggered) {
+                    // Staggered mode logic
+                    let idx = 0;
+                    launchBtn.disabled = true;
+                    launchBtn.classList.add('opacity-60', 'pointer-events-none');
+
+                    const timer = setInterval(() => {
+                        if (idx < parsedUrls.length) {
+                            window.open(parsedUrls[idx], '_blank');
+                            showToast(`Opened (${idx + 1}/${parsedUrls.length}) links`, "external-link");
+                            idx++;
+                        } else {
+                            clearInterval(timer);
+                            launchBtn.disabled = false;
+                            launchBtn.classList.remove('opacity-60', 'pointer-events-none');
+                            showToast("Finished opening all links!", "check-circle-2");
+                        }
+                    }, interval);
+                } else {
+                    // Simultaneous direct loop opening
+                    let blockedCount = 0;
+                    let openedCount = 0;
+
+                    parsedUrls.forEach((url) => {
+                        try {
+                            const newWin = window.open(url, '_blank');
+                            if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+                                blockedCount++;
+                            } else {
+                                openedCount++;
+                            }
+                        } catch (e) {
+                            blockedCount++;
+                        }
+                    });
+
+                    if (blockedCount > 0) {
+                        popupBanner.style.display = 'flex';
+                        showToast(`Opened ${openedCount} link(s). ${blockedCount} blocked by browser popup settings.`, "shield-alert");
+                    } else {
+                        showToast(`Simultaneously opened ${openedCount} links!`, "rocket");
+                    }
+                }
+            });
+
+            // --- Toast Notification ---
+            let toastTimer;
+            function showToast(msg, icon = "check-circle-2") {
+                clearTimeout(toastTimer);
+                document.getElementById('toastMsg').textContent = msg;
+                document.getElementById('toastIcon').innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i>`;
+                lucide.createIcons();
+
+                const toast = document.getElementById('toast');
+                toast.classList.remove('translate-y-20', 'opacity-0');
+
+                toastTimer = setTimeout(() => {
+                    toast.classList.add('translate-y-20', 'opacity-0');
+                }, 2500);
+            }
+
+            // Initial UI setup & URL parse
+            updateModeUI();
+            updateQueueUI();
+        });
+
+        // --- Orange Ambient Canvas Background ---
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let particles = [];
+        let mouse = { x: null, y: null, radius: 150 };
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initParticles();
+        }
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.radius = Math.random() * 2 + 0.5;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.alpha = Math.random() * 0.5 + 0.2;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(249, 115, 22, ${this.alpha})`;
+                ctx.fill();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+
+                if (mouse.x !== null && mouse.y !== null) {
+                    let dx = mouse.x - this.x;
+                    let dy = mouse.y - this.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < mouse.radius) {
+                        let force = (mouse.radius - distance) / mouse.radius;
+                        let directionX = dx / distance;
+                        let directionY = dy / distance;
+                        this.x -= directionX * force * 3;
+                        this.y -= directionY * force * 3;
+                    }
+                }
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const count = Math.min(Math.floor((width * height) / 12000), 80);
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animateCanvas() {
+            ctx.clearRect(0, 0, width, height);
+
+            for (let a = 0; a < particles.length; a++) {
+                for (let b = a; b < particles.length; b++) {
+                    let dx = particles[a].x - particles[b].x;
+                    let dy = particles[a].y - particles[b].y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 120) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(249, 115, 22, ${0.15 - dist / 800})`;
+                        ctx.lineWidth = 0.8;
+                        ctx.moveTo(particles[a].x, particles[a].y);
+                        ctx.lineTo(particles[b].x, particles[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            requestAnimationFrame(animateCanvas);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        window.addEventListener('mouseleave', () => {
+            mouse.x = null;
+            mouse.y = null;
+        });
+
+        window.onload = () => {
+            resizeCanvas();
+            animateCanvas();
+        };
+    </script>
+</body>
+</html>
